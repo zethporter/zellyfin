@@ -1,0 +1,31 @@
+[Unit]
+Description=Jellyfin Media Server
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=docker.io/jellyfin/jellyfin:latest
+ContainerName=jellyfin
+AutoUpdate=registry
+
+# Adjust these paths to your actual media directories
+Volume=/opt/jellyfin/config:/config:Z
+Volume=/opt/jellyfin/cache:/cache:Z
+Volume=/srv/media:/media:ro,Z
+
+# Web UI
+PublishPort=8096:8096
+# HTTPS (optional)
+PublishPort=8920:8920
+# Client auto-discovery (UDP)
+PublishPort=7359:7359/udp
+PublishPort=1900:1900/udp
+
+Environment=TZ=America/Denver
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target
