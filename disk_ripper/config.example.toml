@@ -1,5 +1,5 @@
 [tmdb]
-  api_key = "a76e9dd68d085103feeca174f2aff81e"
+  api_key = ""
 
 [drive]
   device = "/dev/sr0"
@@ -10,6 +10,6 @@
 [sftp]
   host = "192.168.1.100"
   port = "22"
-  user = "zeth"
-  key_path = "~/.ssh/id_rsa"
+  user = ""
+  key_path = ""
   remote_path = "/media/movies"
