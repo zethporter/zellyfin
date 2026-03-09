@@ -1,15 +1,15 @@
 [tmdb]
-api_key = "your_tmdb_api_key_here"
+  api_key = "a76e9dd68d085103feeca174f2aff81e"
 
 [drive]
-device = "/dev/sr0" # Windows: "D:"
+  device = "/dev/sr0"
 
 [output]
-dir = "./output"
+  dir = "./output"
 
 [sftp]
-host = "192.168.1.100"
-port = "22"
-user = "zeth"
-key_path = "~/.ssh/id_rsa"
-remote_path = "/media/movies"
+  host = "192.168.1.100"
+  port = "22"
+  user = "zeth"
+  key_path = "~/.ssh/id_rsa"
+  remote_path = "/media/movies"
