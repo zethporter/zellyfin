@@ -19,7 +19,7 @@ func RipDisc(device, outputDir string, progressCh chan<- int) error {
 	}
 
 	source := fmt.Sprintf("dev:%s", device)
-	cmd := exec.Command("makemkvcon", "mkv", source, "all", outputDir)
+	cmd := exec.Command("makemkvcon", "--robot", "mkv", source, "all", outputDir)
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
