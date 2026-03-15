@@ -34,7 +34,7 @@ type rippingModel struct {
 
 func newRippingModel(device, outputDir string) (rippingModel, tea.Cmd) {
 	rm := rippingModel{
-		bar:       progress.New(progress.WithDefaultGradient()),
+		bar:       newProgressBar(),
 		outputDir: outputDir,
 	}
 	cmd := func() tea.Msg {
@@ -221,13 +221,14 @@ func (m Model) viewUploading() string {
 // transitionAfterFileSelect decides the next step once mainMKV is set.
 func (m Model) transitionAfterFileSelect() (tea.Model, tea.Cmd) {
 	if m.fullPipeline {
+		folderName := filepath.Base(m.ripping.outputDir)
 		remotePath := filepath.Join(
 			m.cfg.SFTP.RemotePath,
-			m.folderName,
-			filepath.Base(m.mainMKV),
+			folderName,
+			folderName+".mkv",
 		)
 		m.uploading = uploadModel{
-			bar:        progress.New(progress.WithDefaultGradient()),
+			bar:        newProgressBar(),
 			remotePath: remotePath,
 		}
 		m.state = StateUploading

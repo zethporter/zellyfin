@@ -53,7 +53,7 @@ func newConfigEditorModel(cfg config.Config) (configEditorModel, tea.Cmd) {
 			huh.NewInput().Title("Key Path").Value(&f.sftpKey),
 			huh.NewInput().Title("Remote Path").Value(&f.sftpRemote),
 		).Title("SFTP"),
-	).WithShowHelp(true)
+	).WithShowHelp(true).WithTheme(formTheme())
 
 	return configEditorModel{form: form, fields: f}, form.Init()
 }

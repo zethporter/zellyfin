@@ -40,7 +40,7 @@ func newDoneModel(localDir, movieName, localPath string, uploadErr error, fullPi
 				Title("Delete local temp files?").
 				Value(d.cleanup),
 		),
-	).WithShowHelp(true)
+	).WithShowHelp(true).WithTheme(formTheme())
 	return d, d.cleanupForm.Init()
 }
 

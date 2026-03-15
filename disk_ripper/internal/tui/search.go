@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 
 	"ripper/internal/tmdb"
 
@@ -35,6 +36,7 @@ type searchModel struct {
 	confirmForm *huh.Form
 	editName    *string
 	editYear    *string
+	editId      *string
 }
 
 func newSearchModel() (searchModel, tea.Cmd) {
@@ -44,13 +46,13 @@ func newSearchModel() (searchModel, tea.Cmd) {
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Movie title").
-				Placeholder("e.g. The Matrix").
+				Placeholder("e.g. The Goonies").
 				Value(s.query),
 		),
-	).WithShowHelp(true)
+	).WithShowHelp(true).WithTheme(formTheme())
 
 	sp := spinner.New()
-	sp.Spinner = spinner.Dot
+	sp.Spinner = spinner.Moon
 	s.spinner = sp
 
 	return s, s.form.Init()
@@ -108,16 +110,19 @@ func (m Model) updateSearchLoading(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		editName := tmdb.SanitizeFilename(msg.result.Title)
 		editYear := tmdb.ExtractYear(msg.result.ReleaseDate)
+		editId := strconv.Itoa(msg.result.ID)
 		m.search.result = msg.result
 		m.search.editName = &editName
 		m.search.editYear = &editYear
+		m.search.editId = &editId
 
 		m.search.confirmForm = huh.NewForm(
 			huh.NewGroup(
 				huh.NewInput().Title("Movie name").Value(m.search.editName),
 				huh.NewInput().Title("Year").Value(m.search.editYear),
+				huh.NewInput().Title("TMBD ID").Value(m.search.editId),
 			),
-		).WithShowHelp(true)
+		).WithShowHelp(true).WithTheme(formTheme())
 
 		m.search.step = searchStepConfirm
 		return m, m.search.confirmForm.Init()
@@ -137,9 +142,16 @@ func (m Model) updateSearchConfirm(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.search.confirmForm.State {
 	case huh.StateCompleted:
+		editId, err := strconv.Atoi(*m.search.editId)
+		if err != nil {
+			m.err = err
+			m.id = 0
+		} else {
+			m.id = editId
+		}
 		m.movieName = *m.search.editName
 		m.year = *m.search.editYear
-		m.folderName = *m.search.editName + " (" + *m.search.editYear + ")"
+		m.folderName = *m.search.editName + " (" + *m.search.editYear + ") [tmdb-" + *m.search.editId + "]"
 		m.outputDir = filepath.Join(m.cfg.Output.Dir, m.folderName)
 
 		if !m.fullPipeline {
@@ -180,9 +192,11 @@ func (m Model) viewSearch() string {
 
 	case searchStepConfirm:
 		result := m.search.result
-		info := fmt.Sprintf("  Found: %s  %s\n\n  Edit if needed, then confirm:\n\n",
+		id := strconv.Itoa(result.ID)
+		info := fmt.Sprintf("  Found: %s  %s %s\n\n  Edit if needed, then confirm:\n\n",
 			successStyle.Render(result.Title),
 			sublabelStyle.Render(tmdb.ExtractYear(result.ReleaseDate)),
+			sublabelStyle.Render(id),
 		)
 		content = info + m.search.confirmForm.View()
 	}

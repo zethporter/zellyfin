@@ -1,16 +1,26 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/bubbles/progress"
+	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
+)
 
-// Palette
+// Palette (ANSI – used for lipgloss styles)
 var (
-	colorPrimary = lipgloss.Color("#7C3AED") // violet
-	colorSuccess = lipgloss.Color("#10B981") // emerald
-	colorError   = lipgloss.Color("#EF4444") // red
-	colorMuted   = lipgloss.Color("#6B7280") // gray
-	colorText    = lipgloss.Color("#F9FAFB") // near-white
-	colorSubtext = lipgloss.Color("#9CA3AF") // light gray
-	colorBorder  = lipgloss.Color("#4B5563") // dark gray
+	colorPrimary = lipgloss.Color("95") // violet
+	colorSuccess = lipgloss.Color("92") // emerald
+	colorError   = lipgloss.Color("91") // red
+	colorMuted   = lipgloss.Color("94") // gray
+	colorText    = lipgloss.Color("97") // near-white
+	colorSubtext = lipgloss.Color("90") // light gray
+	colorBorder  = lipgloss.Color("93") // dark gray
+)
+
+// Hex equivalents for components that require true-color strings (e.g. progress bars).
+const (
+	hexPrimary = "#af5fd7" // violet  (~ANSI 95)
+	hexMuted   = "#5f87af" // steel   (~ANSI 67)
 )
 
 // Reusable styles
@@ -18,7 +28,6 @@ var (
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(colorText).
-			Background(colorPrimary).
 			Padding(0, 2)
 
 	boxStyle = lipgloss.NewStyle().
@@ -48,3 +57,34 @@ var (
 	labelStyle = lipgloss.NewStyle().
 			Foreground(colorText)
 )
+
+// newProgressBar returns a progress.Model styled with the app palette.
+func newProgressBar() progress.Model {
+	return progress.New(progress.WithGradient(hexMuted, hexPrimary))
+}
+
+// formTheme returns a huh theme using the app palette.
+func formTheme() *huh.Theme {
+	t := huh.ThemeBase()
+
+	t.Focused.Title = lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
+	t.Focused.Description = lipgloss.NewStyle().Foreground(colorSubtext)
+	t.Focused.TextInput.Cursor = lipgloss.NewStyle().Foreground(colorPrimary)
+	t.Focused.TextInput.Text = lipgloss.NewStyle().Foreground(colorText)
+	t.Focused.TextInput.Placeholder = lipgloss.NewStyle().Foreground(colorMuted)
+	t.Focused.ErrorIndicator = lipgloss.NewStyle().Foreground(colorError)
+	t.Focused.ErrorMessage = lipgloss.NewStyle().Foreground(colorError)
+	t.Focused.FocusedButton = lipgloss.NewStyle().Foreground(colorText).Background(colorPrimary).Padding(0, 1)
+	t.Focused.BlurredButton = lipgloss.NewStyle().Foreground(colorMuted).Padding(0, 1)
+	t.Focused.SelectSelector = lipgloss.NewStyle().Foreground(colorPrimary)
+	t.Focused.SelectedOption = lipgloss.NewStyle().Foreground(colorPrimary)
+
+	t.Blurred.Title = lipgloss.NewStyle().Foreground(colorMuted)
+	t.Blurred.Description = lipgloss.NewStyle().Foreground(colorSubtext)
+	t.Blurred.TextInput.Text = lipgloss.NewStyle().Foreground(colorSubtext)
+	t.Blurred.TextInput.Placeholder = lipgloss.NewStyle().Foreground(colorMuted)
+	t.Blurred.FocusedButton = lipgloss.NewStyle().Foreground(colorText).Background(colorPrimary).Padding(0, 1)
+	t.Blurred.BlurredButton = lipgloss.NewStyle().Foreground(colorMuted).Padding(0, 1)
+
+	return t
+}

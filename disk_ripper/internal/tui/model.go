@@ -36,6 +36,7 @@ type Model struct {
 	// workflow data accumulated across steps
 	movieName  string
 	year       string
+	id         int
 	folderName string
 	outputDir  string
 	mainMKV    string

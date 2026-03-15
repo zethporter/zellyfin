@@ -24,7 +24,7 @@ func newLocalConfirmModel(defaultDir string) (localConfirmModel, tea.Cmd) {
 				Description("Where to save the ripped MKV files").
 				Value(&f.outputDir),
 		),
-	).WithShowHelp(true)
+	).WithShowHelp(true).WithTheme(formTheme())
 	lc := localConfirmModel{form: form, fields: f}
 	return lc, form.Init()
 }
