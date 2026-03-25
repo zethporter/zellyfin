@@ -151,7 +151,7 @@ func (m Model) updateSearchConfirm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.movieName = *m.search.editName
 		m.year = *m.search.editYear
-		m.folderName = *m.search.editName + " (" + *m.search.editYear + ") [tmdb-" + *m.search.editId + "]"
+		m.folderName = *m.search.editName + " (" + *m.search.editYear + ") [tmdbid-" + *m.search.editId + "]"
 		m.outputDir = filepath.Join(m.cfg.Output.Dir, m.folderName)
 
 		if !m.fullPipeline {

@@ -3,12 +3,17 @@ package transfer
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"time"
 
 	"ripper/internal/config"
+
+	"github.com/pkg/sftp"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 // CopyFile copies src to dst, streaming bytes written to progressCh.
@@ -59,72 +64,82 @@ func CopyFile(src, dst string, progressCh chan<- int64) error {
 // Upload copies localFile to the remote server via scp, streaming estimated
 // bytes transferred to progressCh. progressCh may be nil.
 func Upload(cfg config.SFTPConfig, localFile, remotePath string, progressCh chan<- int64) error {
-	info, err := os.Stat(localFile)
+	socket := os.Getenv("SSH_AUTH_SOCK")
+	agentConn, err := net.Dial("unix", socket)
 	if err != nil {
-		return fmt.Errorf("cannot stat local file: %w", err)
+		return fmt.Errorf("connect to ssh agent: %w", err)
+	}
+	defer agentConn.Close()
+
+	hostKeyCallback, err := knownhosts.New(os.ExpandEnv("$HOME/.ssh/known_hosts"))
+	if err != nil {
+		return fmt.Errorf("load known_hosts: %w", err)
 	}
 
-	// Create remote directory
-	mkdirCmd := exec.Command(
-		"ssh",
-		"-p", cfg.Port,
-		"-i", cfg.KeyPath,
-		"-o", "StrictHostKeyChecking=no",
-		fmt.Sprintf("%s@%s", cfg.User, cfg.Host),
-		fmt.Sprintf("mkdir -p '%s'", filepath.Dir(remotePath)),
-	)
-	mkdirCmd.Stderr = os.Stderr
-	if err := mkdirCmd.Run(); err != nil {
-		return fmt.Errorf("failed to create remote directory: %w", err)
+	sshCfg := &ssh.ClientConfig{
+		User: cfg.User,
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeysCallback(agent.NewClient(agentConn).Signers),
+		},
+		HostKeyCallback: hostKeyCallback,
+		Timeout:         10 * time.Second,
 	}
 
-	remoteTarget := fmt.Sprintf("%s@%s:%s", cfg.User, cfg.Host, remotePath)
-	scpCmd := exec.Command(
-		"scp",
-		"-P", cfg.Port,
-		"-i", cfg.KeyPath,
-		"-o", "StrictHostKeyChecking=no",
-		localFile,
-		remoteTarget,
-	)
-	scpCmd.Stderr = os.Stderr
+	sshConn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", cfg.Host, cfg.Port), sshCfg)
+	if err != nil {
+		return fmt.Errorf("ssh dial: %w", err)
+	}
+	defer sshConn.Close()
 
-	if progressCh != nil {
-		done := make(chan struct{})
-		go func() {
-			ticker := time.NewTicker(500 * time.Millisecond)
-			defer ticker.Stop()
-			start := time.Now()
-			const assumedBytesPerSec = 50 * 1024 * 1024
-			for {
-				select {
-				case <-done:
-					return
-				case <-ticker.C:
-					elapsed := time.Since(start).Seconds()
-					estimated := int64(elapsed * assumedBytesPerSec)
-					if estimated > info.Size()-1 {
-						estimated = info.Size() - 1
-					}
-					select {
-					case progressCh <- estimated:
-					default:
-					}
-				}
+	client, err := sftp.NewClient(sshConn)
+	if err != nil {
+		return fmt.Errorf("sftp client: %w", err)
+	}
+	defer client.Close()
+
+	if err := client.MkdirAll(filepath.Dir(remotePath)); err != nil {
+		return fmt.Errorf("mkdir remote: %w", err)
+	}
+
+	src, err := os.Open(localFile)
+	if err != nil {
+		return fmt.Errorf("open local file: %w", err)
+	}
+	defer src.Close()
+
+	dst, err := client.Create(remotePath)
+	if err != nil {
+		return fmt.Errorf("create remote file: %w", err)
+	}
+	defer dst.Close()
+
+	if progressCh == nil {
+		_, err = io.Copy(dst, src)
+		return err
+	}
+
+	buf := make([]byte, 32*1024)
+	var written int64
+	for {
+		nr, readErr := src.Read(buf)
+		if nr > 0 {
+			nw, writeErr := dst.Write(buf[:nr])
+			written += int64(nw)
+			select {
+			case progressCh <- written:
+			default:
 			}
-		}()
-		err = scpCmd.Run()
-		close(done)
-		select {
-		case progressCh <- info.Size():
-		default:
+			if writeErr != nil {
+				return writeErr
+			}
 		}
-	} else {
-		err = scpCmd.Run()
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			return readErr
+		}
 	}
 
-	if err != nil {
-		return fmt.Errorf("scp upload failed: %w", err)
-	}
 	return nil
 }

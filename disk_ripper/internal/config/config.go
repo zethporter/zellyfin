@@ -31,7 +31,6 @@ type SFTPConfig struct {
 	Host       string `toml:"host"`
 	Port       string `toml:"port"`
 	User       string `toml:"user"`
-	KeyPath    string `toml:"key_path"`
 	RemotePath string `toml:"remote_path"`
 }
 

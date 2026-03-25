@@ -32,7 +32,6 @@ func newConfigEditorModel(cfg config.Config) (configEditorModel, tea.Cmd) {
 		sftpHost:   cfg.SFTP.Host,
 		sftpPort:   cfg.SFTP.Port,
 		sftpUser:   cfg.SFTP.User,
-		sftpKey:    cfg.SFTP.KeyPath,
 		sftpRemote: cfg.SFTP.RemotePath,
 	}
 
@@ -65,7 +64,6 @@ func (ce configEditorModel) toConfig(base config.Config) config.Config {
 	base.SFTP.Host = ce.fields.sftpHost
 	base.SFTP.Port = ce.fields.sftpPort
 	base.SFTP.User = ce.fields.sftpUser
-	base.SFTP.KeyPath = ce.fields.sftpKey
 	base.SFTP.RemotePath = ce.fields.sftpRemote
 	return base
 }
