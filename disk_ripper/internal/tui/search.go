@@ -152,16 +152,10 @@ func (m Model) updateSearchConfirm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.movieName = *m.search.editName
 		m.year = *m.search.editYear
 		m.folderName = *m.search.editName + " (" + *m.search.editYear + ") [tmdbid-" + *m.search.editId + "]"
-		m.outputDir = filepath.Join(m.cfg.Output.Dir, m.folderName)
+		m.outputDir = filepath.Join(m.cfg.Output.Dir, m.folderName, m.folderName+".mkv")
+		m.tempDir = filepath.Join(m.cfg.Output.TempDir, m.folderName)
 
-		if !m.fullPipeline {
-			lc, lcCmd := newLocalConfirmModel(m.outputDir)
-			m.localConfirm = lc
-			m.state = StateLocalOnlyConfirm
-			return m, lcCmd
-		}
-
-		rip, ripCmd := newRippingModel(m.cfg.Drive.Device, m.outputDir)
+		rip, ripCmd := newRippingModel(m.cfg.Drive.Device, m.tempDir)
 		m.ripping = rip
 		m.state = StateRipping
 		return m, ripCmd

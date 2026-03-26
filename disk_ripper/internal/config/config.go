@@ -12,7 +12,6 @@ type Config struct {
 	TMDB   TMDBConfig   `toml:"tmdb"`
 	Drive  DriveConfig  `toml:"drive"`
 	Output OutputConfig `toml:"output"`
-	SFTP   SFTPConfig   `toml:"sftp"`
 }
 
 type TMDBConfig struct {
@@ -24,14 +23,8 @@ type DriveConfig struct {
 }
 
 type OutputConfig struct {
-	Dir string `toml:"dir"`
-}
-
-type SFTPConfig struct {
-	Host       string `toml:"host"`
-	Port       string `toml:"port"`
-	User       string `toml:"user"`
-	RemotePath string `toml:"remote_path"`
+	Dir     string `toml:"dir"`
+	TempDir string `toml:"temp_dir"`
 }
 
 func Load(path string) (Config, error) {
@@ -42,9 +35,6 @@ func Load(path string) (Config, error) {
 
 	if key := os.Getenv("TMDB_API_KEY"); key != "" {
 		cfg.TMDB.APIKey = key
-	}
-	if host := os.Getenv("SFTP_HOST"); host != "" {
-		cfg.SFTP.Host = host
 	}
 
 	return cfg, nil

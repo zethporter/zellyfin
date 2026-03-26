@@ -9,14 +9,10 @@ import (
 )
 
 type configEditorFields struct {
-	apiKey     string
-	device     string
-	outputDir  string
-	sftpHost   string
-	sftpPort   string
-	sftpUser   string
-	sftpKey    string
-	sftpRemote string
+	apiKey    string
+	device    string
+	outputDir string
+	tempDir   string
 }
 
 type configEditorModel struct {
@@ -26,13 +22,10 @@ type configEditorModel struct {
 
 func newConfigEditorModel(cfg config.Config) (configEditorModel, tea.Cmd) {
 	f := &configEditorFields{
-		apiKey:     cfg.TMDB.APIKey,
-		device:     cfg.Drive.Device,
-		outputDir:  cfg.Output.Dir,
-		sftpHost:   cfg.SFTP.Host,
-		sftpPort:   cfg.SFTP.Port,
-		sftpUser:   cfg.SFTP.User,
-		sftpRemote: cfg.SFTP.RemotePath,
+		apiKey:    cfg.TMDB.APIKey,
+		device:    cfg.Drive.Device,
+		outputDir: cfg.Output.Dir,
+		tempDir:   cfg.Output.TempDir,
 	}
 
 	form := huh.NewForm(
@@ -43,15 +36,9 @@ func newConfigEditorModel(cfg config.Config) (configEditorModel, tea.Cmd) {
 			huh.NewInput().Title("Device").Value(&f.device),
 		).Title("Drive"),
 		huh.NewGroup(
-			huh.NewInput().Title("Local Dir").Value(&f.outputDir),
+			huh.NewInput().Title("Movie Dir").Value(&f.outputDir),
+			huh.NewInput().Title("Temp Dir").Value(&f.tempDir),
 		).Title("Output"),
-		huh.NewGroup(
-			huh.NewInput().Title("Host").Value(&f.sftpHost),
-			huh.NewInput().Title("Port").Value(&f.sftpPort),
-			huh.NewInput().Title("User").Value(&f.sftpUser),
-			huh.NewInput().Title("Key Path").Value(&f.sftpKey),
-			huh.NewInput().Title("Remote Path").Value(&f.sftpRemote),
-		).Title("SFTP"),
 	).WithShowHelp(true).WithTheme(formTheme())
 
 	return configEditorModel{form: form, fields: f}, form.Init()
@@ -61,10 +48,6 @@ func (ce configEditorModel) toConfig(base config.Config) config.Config {
 	base.TMDB.APIKey = ce.fields.apiKey
 	base.Drive.Device = ce.fields.device
 	base.Output.Dir = ce.fields.outputDir
-	base.SFTP.Host = ce.fields.sftpHost
-	base.SFTP.Port = ce.fields.sftpPort
-	base.SFTP.User = ce.fields.sftpUser
-	base.SFTP.RemotePath = ce.fields.sftpRemote
 	return base
 }
 

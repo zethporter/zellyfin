@@ -21,6 +21,15 @@ const (
 	StateDone
 )
 
+type Flow int
+
+const (
+	Unknown Flow = iota
+	Ripping
+	NoSearchRip
+	Transfer
+)
+
 // Model is the root Bubbletea model. It owns all sub-models and shared
 // workflow state, delegating Update/View to the active sub-model.
 type Model struct {
@@ -31,7 +40,7 @@ type Model struct {
 	height  int
 
 	// workflow choice set at main menu
-	fullPipeline bool
+	flow Flow
 
 	// workflow data accumulated across steps
 	movieName  string
@@ -39,6 +48,7 @@ type Model struct {
 	id         int
 	folderName string
 	outputDir  string
+	tempDir    string
 	mainMKV    string
 
 	// sub-models (initialised lazily per-phase)

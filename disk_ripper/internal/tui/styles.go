@@ -8,13 +8,14 @@ import (
 
 // Palette (ANSI – used for lipgloss styles)
 var (
-	colorPrimary = lipgloss.Color("95") // violet
-	colorSuccess = lipgloss.Color("92") // emerald
-	colorError   = lipgloss.Color("91") // red
-	colorMuted   = lipgloss.Color("94") // gray
-	colorText    = lipgloss.Color("97") // near-white
-	colorSubtext = lipgloss.Color("90") // light gray
-	colorBorder  = lipgloss.Color("93") // dark gray
+	colorPrimary = lipgloss.Color("5") // violet
+	colorSuccess = lipgloss.Color("2") // emerald
+	colorError   = lipgloss.Color("1") // red
+	colorMuted   = lipgloss.Color("4") // gray
+	colorText    = lipgloss.Color("7") // near-white
+	colorSubtext = lipgloss.Color("4") // light gray
+	colorBorder  = lipgloss.Color("3") // dark gray
+	colorBlack   = lipgloss.Color("0") // black
 )
 
 // Hex equivalents for components that require true-color strings (e.g. progress bars).
@@ -56,6 +57,8 @@ var (
 
 	labelStyle = lipgloss.NewStyle().
 			Foreground(colorText)
+	unselectedSubLabelStyle = lipgloss.NewStyle().
+				Foreground(colorBlack)
 )
 
 // newProgressBar returns a progress.Model styled with the app palette.

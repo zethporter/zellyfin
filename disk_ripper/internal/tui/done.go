@@ -14,25 +14,25 @@ import (
 type cleanupDoneMsg struct{}
 
 type doneModel struct {
-	movieName    string
-	localPath    string
-	localDir     string
-	uploadErr    error
-	fullPipeline bool
-	cleanup      *bool
-	cleanupForm  *huh.Form
-	cleaned      bool
+	movieName   string
+	localPath   string
+	localDir    string
+	uploadErr   error
+	flow        Flow
+	cleanup     *bool
+	cleanupForm *huh.Form
+	cleaned     bool
 }
 
-func newDoneModel(localDir, movieName, localPath string, uploadErr error, fullPipeline bool) (doneModel, tea.Cmd) {
+func newDoneModel(localDir, movieName, localPath string, uploadErr error, flow Flow) (doneModel, tea.Cmd) {
 	cleanup := false
 	d := doneModel{
-		movieName:    movieName,
-		localPath:    localPath,
-		localDir:     localDir,
-		uploadErr:    uploadErr,
-		fullPipeline: fullPipeline,
-		cleanup:      &cleanup,
+		movieName: movieName,
+		localPath: localPath,
+		localDir:  localDir,
+		uploadErr: uploadErr,
+		flow:      flow,
+		cleanup:   &cleanup,
 	}
 	d.cleanupForm = huh.NewForm(
 		huh.NewGroup(
@@ -90,7 +90,7 @@ func (m Model) viewDone() string {
 
 	if d.uploadErr != nil {
 		sb.WriteString(errorStyle.Render("  Upload failed: "+d.uploadErr.Error()) + "\n\n")
-	} else if d.fullPipeline {
+	} else if d.flow != Ripping {
 		sb.WriteString(successStyle.Render("  Upload complete!") + "\n\n")
 	} else {
 		sb.WriteString(successStyle.Render("  Rip complete!") + "\n\n")

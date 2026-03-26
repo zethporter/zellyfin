@@ -68,16 +68,16 @@ func (m Model) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) selectMenuItem() (tea.Model, tea.Cmd) {
 	switch m.menu.cursor {
 	case 0: // Full pipeline
-		m.fullPipeline = true
+		m.flow = Ripping
 		sm, cmd := newSearchModel()
 		m.search = sm
 		m.state = StateTMDBSearch
 		return m, cmd
 	case 1: // Local rip only
-		m.fullPipeline = false
+		m.flow = NoSearchRip
 		sm, cmd := newSearchModel()
 		m.search = sm
-		m.state = StateTMDBSearch
+		m.state = StateTMDBConfirm
 		return m, cmd
 	case 2: // Edit config
 		ce, cmd := newConfigEditorModel(m.cfg)
@@ -103,16 +103,16 @@ func (m Model) viewMenu() string {
 		var row strings.Builder
 
 		if i == m.menu.cursor {
-			row.WriteString(selectedItemStyle.Render("▸ "))
+			row.WriteString(selectedItemStyle.Render("-> "))
 			row.WriteString(selectedItemStyle.Width(labelWidth).Render(item.label))
 			if item.sublabel != "" {
 				row.WriteString(sublabelStyle.Render(item.sublabel))
 			}
 		} else {
-			row.WriteString("  ")
+			row.WriteString("   ")
 			row.WriteString(labelStyle.Width(labelWidth).Render(item.label))
 			if item.sublabel != "" {
-				row.WriteString(sublabelStyle.Render(item.sublabel))
+				row.WriteString(unselectedSubLabelStyle.Render(item.sublabel))
 			}
 		}
 

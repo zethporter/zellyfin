@@ -3,9 +3,7 @@ package tui
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
-	"ripper/internal/config"
 	"ripper/internal/ripper"
 	"ripper/internal/transfer"
 
@@ -29,19 +27,19 @@ type rippingModel struct {
 	pct        int
 	progressCh <-chan int
 	errCh      <-chan error
-	outputDir  string
+	tempDir    string
 }
 
-func newRippingModel(device, outputDir string) (rippingModel, tea.Cmd) {
+func newRippingModel(device, tempDir string) (rippingModel, tea.Cmd) {
 	rm := rippingModel{
-		bar:       newProgressBar(),
-		outputDir: outputDir,
+		bar:     newProgressBar(),
+		tempDir: tempDir,
 	}
 	cmd := func() tea.Msg {
 		progressCh := make(chan int, 20)
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- ripper.RipDisc(device, outputDir, progressCh)
+			errCh <- ripper.RipDisc(device, tempDir, progressCh)
 		}()
 		return ripStartedMsg{progressCh: progressCh, errCh: errCh}
 	}
@@ -77,15 +75,15 @@ func (m Model) updateRipping(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.err = msg.err
 			m.state = StateDone
-			dm, cmd := newDoneModel(m.ripping.outputDir, m.movieName, m.mainMKV, msg.err, m.fullPipeline)
+			dm, cmd := newDoneModel(m.ripping.tempDir, m.movieName, m.mainMKV, msg.err, m.flow)
 			m.done = dm
 			return m, cmd
 		}
-		files, err := ripper.FindMKVFiles(m.ripping.outputDir)
+		files, err := ripper.FindMKVFiles(m.ripping.tempDir)
 		if err != nil || len(files) == 0 {
-			ripErr := fmt.Errorf("no MKV files found in %s", m.ripping.outputDir)
+			ripErr := fmt.Errorf("no MKV files found in %s", m.ripping.tempDir)
 			m.err = ripErr
-			dm, cmd := newDoneModel(m.ripping.outputDir, m.movieName, "", ripErr, m.fullPipeline)
+			dm, cmd := newDoneModel(m.ripping.tempDir, m.movieName, "", ripErr, m.flow)
 			m.done = dm
 			m.state = StateDone
 			return m, cmd
@@ -107,7 +105,7 @@ func (m Model) viewRipping() string {
 	bar := m.ripping.bar.ViewAs(float64(m.ripping.pct) / 100)
 	content := fmt.Sprintf(
 		"  Ripping to:\n  %s\n\n  %s\n  %s\n",
-		sublabelStyle.Render(m.ripping.outputDir),
+		sublabelStyle.Render(m.ripping.tempDir),
 		bar,
 		dimStyle.Render(fmt.Sprintf("%d%%", m.ripping.pct)),
 	)
@@ -142,7 +140,7 @@ type uploadModel struct {
 	remotePath string
 }
 
-func startUploadCmd(sftp config.SFTPConfig, localFile, remotePath string) tea.Cmd {
+func startUploadCmd(localFile, remotePath string) tea.Cmd {
 	return func() tea.Msg {
 		info, err := os.Stat(localFile)
 		if err != nil {
@@ -151,7 +149,7 @@ func startUploadCmd(sftp config.SFTPConfig, localFile, remotePath string) tea.Cm
 		progressCh := make(chan int64, 20)
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- transfer.Upload(sftp, localFile, remotePath, progressCh)
+			errCh <- transfer.Upload(localFile, remotePath, progressCh)
 		}()
 		return uploadStartedMsg{progressCh: progressCh, errCh: errCh, totalBytes: info.Size()}
 	}
@@ -184,7 +182,7 @@ func (m Model) updateUploading(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, pollUpload(m.uploading.progressCh, m.uploading.errCh)
 
 	case uploadDoneMsg:
-		dm, cmd := newDoneModel(m.ripping.outputDir, m.movieName, m.mainMKV, msg.err, m.fullPipeline)
+		dm, cmd := newDoneModel(m.ripping.tempDir, m.movieName, m.mainMKV, msg.err, m.flow)
 		m.done = dm
 		m.state = StateDone
 		return m, cmd
@@ -220,21 +218,15 @@ func (m Model) viewUploading() string {
 
 // transitionAfterFileSelect decides the next step once mainMKV is set.
 func (m Model) transitionAfterFileSelect() (tea.Model, tea.Cmd) {
-	if m.fullPipeline {
-		folderName := filepath.Base(m.ripping.outputDir)
-		remotePath := filepath.Join(
-			m.cfg.SFTP.RemotePath,
-			folderName,
-			folderName+".mkv",
-		)
+	if m.flow != Unknown {
 		m.uploading = uploadModel{
 			bar:        newProgressBar(),
-			remotePath: remotePath,
+			remotePath: m.outputDir,
 		}
 		m.state = StateUploading
-		return m, startUploadCmd(m.cfg.SFTP, m.mainMKV, remotePath)
+		return m, startUploadCmd(m.mainMKV, m.outputDir)
 	}
-	dm, cmd := newDoneModel(m.ripping.outputDir, m.movieName, m.mainMKV, nil, false)
+	dm, cmd := newDoneModel(m.ripping.tempDir, m.movieName, m.mainMKV, nil, Unknown)
 	m.done = dm
 	m.state = StateDone
 	return m, cmd
