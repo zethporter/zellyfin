@@ -66,8 +66,7 @@ func (m Model) selectMenuItem() (tea.Model, tea.Cmd) {
 	switch m.menu.cursor {
 	case 0: // Full pipeline
 		m.flow = Ripping
-		sm, cmd := newSearchModel()
-		m.search = sm
+		sm, cmd := newTitleFetchModel(m.cfg.Drive.Device)
 		m.state = StateTMDBSearch
 		return m, cmd
 	case 1: // Local rip only
