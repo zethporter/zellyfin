@@ -1,7 +1,9 @@
 package tui
 
 import (
+	types "ripper/internal"
 	"ripper/internal/config"
+	"ripper/internal/types"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -12,6 +14,8 @@ type State int
 const (
 	StateMainMenu State = iota
 	StateConfigEditor
+	StateFetchTitles
+	StateSelectTitle
 	StateTMDBSearch
 	StateTMDBConfirm
 	StateLocalOnlyConfirm
@@ -21,6 +25,7 @@ const (
 	StateDone
 )
 
+// Flow represents the workflow state.
 type Flow int
 
 const (
@@ -43,13 +48,15 @@ type Model struct {
 	flow Flow
 
 	// workflow data accumulated across steps
-	movieName  string
-	year       string
-	id         int
-	folderName string
-	outputDir  string
-	tempDir    string
-	mainMKV    string
+	movieName     string
+	year          string
+	id            int
+	folderName    string
+	outputDir     string
+	tempDir       string
+	mainMKV       string
+	diskTitles    []types.TitleInfo
+	selectedTitle string
 
 	// sub-models (initialised lazily per-phase)
 	menu         menuModel
@@ -57,6 +64,7 @@ type Model struct {
 	search       searchModel
 	localConfirm localConfirmModel
 	ripping      rippingModel
+	fetching     fetchingModel
 	fileSelect   fileSelectModel
 	uploading    uploadModel
 	done         doneModel

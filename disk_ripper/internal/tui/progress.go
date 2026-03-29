@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	types "ripper/internal"
 	"ripper/internal/ripper"
 	"ripper/internal/transfer"
+	"ripper/internal/types"
 
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
@@ -30,7 +32,7 @@ type rippingModel struct {
 	tempDir    string
 }
 
-func newRippingModel(device, tempDir string) (rippingModel, tea.Cmd) {
+func newRippingModel(device, selectedTitle, tempDir string) (rippingModel, tea.Cmd) {
 	rm := rippingModel{
 		bar:     newProgressBar(),
 		tempDir: tempDir,
@@ -39,7 +41,7 @@ func newRippingModel(device, tempDir string) (rippingModel, tea.Cmd) {
 		progressCh := make(chan int, 20)
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- ripper.RipDisc(device, tempDir, progressCh)
+			errCh <- ripper.RipDisc(device, selectedTitle, tempDir, progressCh)
 		}()
 		return ripStartedMsg{progressCh: progressCh, errCh: errCh}
 	}
@@ -108,6 +110,103 @@ func (m Model) viewRipping() string {
 		sublabelStyle.Render(m.ripping.tempDir),
 		bar,
 		dimStyle.Render(fmt.Sprintf("%d%%", m.ripping.pct)),
+	)
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		"",
+		lipgloss.NewStyle().PaddingLeft(2).Render(header),
+		"",
+		lipgloss.NewStyle().PaddingLeft(2).Render(content),
+		"",
+		helpStyle.Render("  ctrl+c  abort"),
+	)
+}
+
+// ── Fetching Titles ───────────────────────────────────────────────────────────────────
+
+type fetchStartedMsg struct {
+	progressCh <-chan types.FetchingProgress
+	errCh      <-chan error
+}
+
+type fetchProgressMsg struct{ pct int }
+type fetchDoneMsg struct {
+	titles []types.TitleInfo
+	err    error
+}
+
+type fetchingModel struct {
+	bar        progress.Model
+	pct        int
+	progressCh <-chan types.FetchingProgress
+	errCh      <-chan error
+}
+
+func newTitleFetchModel(device string) (fetchingModel, tea.Cmd) {
+	rm := fetchingModel{
+		bar: newProgressBar(),
+	}
+
+	cmd := func() tea.Msg {
+		progressCh := make(chan types.FetchingProgress, 1)
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- ripper.FindTitles(device, progressCh)
+		}()
+		return fetchStartedMsg{progressCh: progressCh, errCh: errCh}
+	}
+	return rm, cmd
+}
+
+func pollFetch(progressCh <-chan types.FetchingProgress, errCh <-chan error) tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case pgsChan, ok := <-progressCh:
+			if !ok {
+				titles := ripper.SliceTitleStore(pgsChan.Titles)
+				return fetchDoneMsg{titles: titles}
+			}
+			return fetchProgressMsg{pct: pgsChan.Pct}
+		case err := <-errCh:
+			return fetchDoneMsg{err: err}
+		}
+	}
+}
+
+func (m Model) updateFetching(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case fetchStartedMsg:
+		m.fetching.progressCh = msg.progressCh
+		m.fetching.errCh = msg.errCh
+		return m, pollFetch(msg.progressCh, msg.errCh)
+
+	case fetchProgressMsg:
+		m.fetching.pct = msg.pct
+		return m, pollFetch(m.fetching.progressCh, m.fetching.errCh)
+
+	case fetchDoneMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.state = StateDone
+			dm, cmd := newDoneModel("", m.movieName, m.mainMKV, msg.err, m.flow)
+			m.done = dm
+			return m, cmd
+		}
+		m.diskTitles = msg.titles
+		ts, cmd := newTitleSelectModel(m.diskTitles, m.width, m.height)
+		m.titleSelect = ts
+		m.state = StateTitleSelect
+		return m, cmd
+	}
+	return m, nil
+}
+
+func (m Model) viewFetching() string {
+	header := titleStyle.Render("  Fetching Titles  ")
+	bar := m.fetching.bar.ViewAs(float64(m.fetching.pct) / 100)
+	content := fmt.Sprintf(
+		bar,
+		dimStyle.Render(fmt.Sprintf("%d%%", m.fetching.pct)),
 	)
 	return lipgloss.JoinVertical(
 		lipgloss.Left,

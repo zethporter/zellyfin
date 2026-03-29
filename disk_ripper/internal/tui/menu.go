@@ -20,8 +20,8 @@ type menuModel struct {
 func newMenuModel() menuModel {
 	return menuModel{
 		items: []menuItem{
-			{"Full pipeline", "TMDB metadata + rip + upload to server"},
-			{"Local rip only", "rip to local drive, no upload"},
+			{"Upload Movie", "TMDB metadata + rip + upload to server"},
+			{"No TMBD Search", "rip to local drive, no Search"},
 			{"Edit config", "modify connection and path settings"},
 			{"Quit", ""},
 		},
@@ -55,10 +55,7 @@ func (m Model) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case "2":
 		m.menu.cursor = 1
 		return m.selectMenuItem()
-	case "3":
-		m.menu.cursor = 2
-		return m.selectMenuItem()
-	case "q", "4":
+	case "q", "3":
 		return m, tea.Quit
 	}
 
