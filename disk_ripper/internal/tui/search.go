@@ -39,8 +39,8 @@ type searchModel struct {
 	editId      *string
 }
 
-func newSearchModel() (searchModel, tea.Cmd) {
-	query := ""
+func newSearchModel(preQuery string) (searchModel, tea.Cmd) {
+	query := preQuery
 	s := searchModel{query: &query}
 	s.form = huh.NewForm(
 		huh.NewGroup(
@@ -103,7 +103,7 @@ func (m Model) updateSearchLoading(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tmdbSearchDoneMsg:
 		if msg.err != nil {
 			// reset to input with error
-			sm, cmd := newSearchModel()
+			sm, cmd := newSearchModel("")
 			sm.err = msg.err
 			m.search = sm
 			return m, cmd
@@ -155,13 +155,13 @@ func (m Model) updateSearchConfirm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.outputDir = filepath.Join(m.cfg.Output.Dir, m.folderName, m.folderName+".mkv")
 		m.tempDir = filepath.Join(m.cfg.Output.TempDir, m.folderName)
 
-		rip, ripCmd := newRippingModel(m.cfg.Drive.Device, m.tempDir)
+		rip, ripCmd := newRippingModel(m.cfg.Drive.Device, m.selectedTitle, m.tempDir)
 		m.ripping = rip
 		m.state = StateRipping
 		return m, ripCmd
 
 	case huh.StateAborted:
-		sm, initCmd := newSearchModel()
+		sm, initCmd := newSearchModel("")
 		m.search = sm
 		return m, initCmd
 	}

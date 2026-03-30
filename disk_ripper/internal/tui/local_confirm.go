@@ -38,12 +38,12 @@ func (m Model) updateLocalConfirm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.localConfirm.form.State {
 	case huh.StateCompleted:
 		m.outputDir = m.localConfirm.fields.outputDir
-		rip, ripCmd := newRippingModel(m.cfg.Drive.Device, m.outputDir)
+		rip, ripCmd := newRippingModel(m.cfg.Drive.Device, "all", m.outputDir)
 		m.ripping = rip
 		m.state = StateRipping
 		return m, ripCmd
 	case huh.StateAborted:
-		sm, initCmd := newSearchModel()
+		sm, initCmd := newSearchModel("")
 		m.search = sm
 		m.state = StateTMDBSearch
 		return m, initCmd

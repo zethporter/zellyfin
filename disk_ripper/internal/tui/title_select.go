@@ -1,25 +1,50 @@
 package tui
 
 import (
-	"fmt"
-	"path/filepath"
+	"strconv"
+
+	types "ripper/internal"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
+type titleItem struct {
+	id          int
+	title, desc string
+}
 
-func (i TitleInfo) Title() string       { return filepath.Base(i.) }
-func (i TitleInfo) Description() string { return fmt.Sprintf("%.1f MB", float64(i.size)/1024/1024) }
-func (i TitleInfo) FilterValue() string { return filepath.Base(i.path) }
+func (i titleItem) Title() string       { return i.title }
+func (i titleItem) Description() string { return i.desc }
+func (i titleItem) FilterValue() string { return i.title }
 
 type titleSelectModel struct {
 	list list.Model
 }
 
-func newTitleSelectModel(titles []TitleInfo, width, height int) (titleSelectModel, tea.Cmd) {
+func newTitleSelectModel(titles []types.TitleInfo, width, height int) (titleSelectModel, tea.Cmd) {
 
+	items := make([]list.Item, len(titles))
+	for i, f := range titles {
+		lenMin, err := strconv.Atoi(f.Duration)
+		if err != nil {
+			seconds := lenMin % 60
+			minutes := (lenMin - seconds) / 60
+			items[i] = titleItem{
+				id:    f.ID,
+				title: f.Name,
+				desc:  f.SizeHuman + " | Duration: " + strconv.Itoa(minutes) + ":" + strconv.Itoa(seconds),
+			}
+		} else {
+			items[i] = titleItem{
+				id:    f.ID,
+				title: f.Name,
+				desc:  f.SizeHuman,
+			}
+		}
+
+	}
 
 	delegate := list.NewDefaultDelegate()
 	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.
@@ -38,7 +63,7 @@ func newTitleSelectModel(titles []TitleInfo, width, height int) (titleSelectMode
 		h = 10
 	}
 
-	l := list.New(titles, delegate, w, h)
+	l := list.New(items, delegate, w, h)
 	l.Title = "Select Title"
 	l.Styles.Title = titleStyle
 	l.SetShowStatusBar(false)
@@ -53,9 +78,13 @@ func (m Model) updateTitleSelect(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyMsg:
 		if msg.String() == "enter" {
-			if item, ok := m.fileSelect.list.SelectedItem().(mkvItem); ok {
-				m.mainMKV = item.path
-				return m.transitionAfterFileSelect()
+			if item, ok := m.fileSelect.list.SelectedItem().(titleItem); ok {
+				selectedTitle := strconv.Itoa(item.id)
+				m.selectedTitle = selectedTitle
+				sm, cmd := newSearchModel(item.title)
+				m.search = sm
+				m.state = StateTMDBConfirm
+				return m, cmd
 			}
 		}
 	}

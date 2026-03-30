@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	types "ripper/internal"
+	"ripper/internal"
 	"ripper/internal/ripper"
 	"ripper/internal/transfer"
-	"ripper/internal/types"
 
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"

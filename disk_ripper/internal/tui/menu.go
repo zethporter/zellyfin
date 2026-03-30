@@ -55,7 +55,10 @@ func (m Model) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case "2":
 		m.menu.cursor = 1
 		return m.selectMenuItem()
-	case "q", "3":
+	case "e", "3":
+		m.menu.cursor = 2
+		return m.selectMenuItem()
+	case "q", "4":
 		return m, tea.Quit
 	}
 
@@ -65,15 +68,16 @@ func (m Model) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) selectMenuItem() (tea.Model, tea.Cmd) {
 	switch m.menu.cursor {
 	case 0: // Full pipeline
-		m.flow = Ripping
-		sm, cmd := newTitleFetchModel(m.cfg.Drive.Device)
-		m.state = StateTMDBSearch
+		m.flow = NormalFlow
+		f, cmd := newTitleFetchModel(m.cfg.Drive.Device)
+		m.fetching = f
+		m.state = StateFetchTitles
 		return m, cmd
 	case 1: // Local rip only
 		m.flow = NoSearchRip
-		sm, cmd := newSearchModel()
-		m.search = sm
-		m.state = StateTMDBConfirm
+		r, cmd := newRippingModel(m.cfg.Drive.Device, "all", m.cfg.Output.Dir)
+		m.ripping = r
+		m.state = StateRipping
 		return m, cmd
 	case 2: // Edit config
 		ce, cmd := newConfigEditorModel(m.cfg)

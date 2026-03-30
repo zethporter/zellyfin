@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"ripper/internal/types"
+	types "ripper/internal"
 )
 
 // RipDisc runs makemkvcon and streams progress (0–100) to progressCh.
@@ -198,36 +198,36 @@ func parseTINFO(line string) (types.TitleEntry, bool) {
 	}
 
 	return types.TitleEntry{
-		titleId:     trackID,
-		titleDetail: trackDetail,
-		titleValue:  value,
+		TitleID:     trackID,
+		TitleDetail: trackDetail,
+		TitleValue:  value,
 	}, true
 }
 
 func updateTitleStore(store map[int]types.TitleInfo, entry types.TitleEntry) {
-	t := store[entry.titleId]
-	t.ID = entry.titleId
+	t := store[entry.TitleID]
+	t.ID = entry.TitleID
 
 	applyTitleEntry(&t, entry)
 
-	store[entry.titleId] = t
+	store[entry.TitleID] = t
 }
 
 func applyTitleEntry(t *types.TitleInfo, entry types.TitleEntry) {
-	switch entry.titleDetail {
+	switch entry.TitleDetail {
 	case types.TD_ChapterCount:
-		if n, err := strconv.Atoi(entry.titleValue); err == nil {
+		if n, err := strconv.Atoi(entry.TitleValue); err == nil {
 			t.Chapters = n
 		}
 	case types.TD_FileSizeBytes:
-		if n, err := strconv.ParseInt(entry.titleValue, 10, 64); err == nil {
+		if n, err := strconv.ParseInt(entry.TitleValue, 10, 64); err == nil {
 			t.SizeBytes = n
 		}
 	case types.TD_FileSizeGB:
-		t.SizeHuman = entry.titleValue
+		t.SizeHuman = entry.TitleValue
 	case types.TD_DiskTitle:
-		t.Name = entry.titleValue
+		t.Name = entry.TitleValue
 	case types.TD_LengthInSeconds:
-		t.Duration = entry.titleValue
+		t.Duration = entry.TitleValue
 	}
 }

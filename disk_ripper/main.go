@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"ripper/internal/config"
 	"ripper/internal/tui"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {

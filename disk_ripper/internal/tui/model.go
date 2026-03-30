@@ -3,7 +3,6 @@ package tui
 import (
 	types "ripper/internal"
 	"ripper/internal/config"
-	"ripper/internal/types"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -15,12 +14,12 @@ const (
 	StateMainMenu State = iota
 	StateConfigEditor
 	StateFetchTitles
-	StateSelectTitle
 	StateTMDBSearch
 	StateTMDBConfirm
 	StateLocalOnlyConfirm
 	StateRipping
 	StateFileSelect
+	StateTitleSelect
 	StateUploading
 	StateDone
 )
@@ -30,6 +29,7 @@ type Flow int
 
 const (
 	Unknown Flow = iota
+	NormalFlow
 	Ripping
 	NoSearchRip
 	Transfer
@@ -66,6 +66,7 @@ type Model struct {
 	ripping      rippingModel
 	fetching     fetchingModel
 	fileSelect   fileSelectModel
+	titleSelect  titleSelectModel
 	uploading    uploadModel
 	done         doneModel
 
@@ -127,6 +128,10 @@ func (m Model) View() string {
 	switch m.state {
 	case StateMainMenu:
 		return m.viewMenu()
+	case StateFetchTitles:
+		return m.viewFetching()
+	case StateTitleSelect:
+		return m.viewTitleSelect()
 	case StateConfigEditor:
 		return m.viewConfigEditor()
 	case StateTMDBSearch:
