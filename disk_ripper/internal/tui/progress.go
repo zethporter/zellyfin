@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"ripper/internal"
+	types "ripper/internal"
 	"ripper/internal/ripper"
 	"ripper/internal/transfer"
 
@@ -128,7 +128,10 @@ type fetchStartedMsg struct {
 	errCh      <-chan error
 }
 
-type fetchProgressMsg struct{ pct int }
+type fetchProgressMsg struct {
+	pct    int
+	titles map[int]types.TitleInfo
+}
 type fetchDoneMsg struct {
 	titles []types.TitleInfo
 	err    error
@@ -138,6 +141,7 @@ type fetchingModel struct {
 	bar        progress.Model
 	pct        int
 	progressCh <-chan types.FetchingProgress
+	lastTitles map[int]types.TitleInfo
 	errCh      <-chan error
 }
 
@@ -162,10 +166,9 @@ func pollFetch(progressCh <-chan types.FetchingProgress, errCh <-chan error) tea
 		select {
 		case pgsChan, ok := <-progressCh:
 			if !ok {
-				titles := ripper.SliceTitleStore(pgsChan.Titles)
-				return fetchDoneMsg{titles: titles}
+				return nil
 			}
-			return fetchProgressMsg{pct: pgsChan.Pct}
+			return fetchProgressMsg{pct: pgsChan.Pct, titles: pgsChan.Titles}
 		case err := <-errCh:
 			return fetchDoneMsg{err: err}
 		}
@@ -180,7 +183,8 @@ func (m Model) updateFetching(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, pollFetch(msg.progressCh, msg.errCh)
 
 	case fetchProgressMsg:
-		m.fetching.pct = msg.pct
+		m.fetching.pct = len(msg.titles)
+		m.fetching.lastTitles = msg.titles
 		return m, pollFetch(m.fetching.progressCh, m.fetching.errCh)
 
 	case fetchDoneMsg:
@@ -191,7 +195,7 @@ func (m Model) updateFetching(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.done = dm
 			return m, cmd
 		}
-		m.diskTitles = msg.titles
+		m.diskTitles = ripper.SliceTitleStore(m.fetching.lastTitles)
 		ts, cmd := newTitleSelectModel(m.diskTitles, m.width, m.height)
 		m.titleSelect = ts
 		m.state = StateTitleSelect
@@ -204,6 +208,7 @@ func (m Model) viewFetching() string {
 	header := titleStyle.Render("  Fetching Titles  ")
 	bar := m.fetching.bar.ViewAs(float64(m.fetching.pct) / 100)
 	content := fmt.Sprintf(
+		"%s %s",
 		bar,
 		dimStyle.Render(fmt.Sprintf("%d%%", m.fetching.pct)),
 	)
