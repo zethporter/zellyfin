@@ -151,7 +151,7 @@ func newTitleFetchModel(device string) (fetchingModel, tea.Cmd) {
 	}
 
 	cmd := func() tea.Msg {
-		progressCh := make(chan types.FetchingProgress, 1)
+		progressCh := make(chan types.FetchingProgress, 100)
 		errCh := make(chan error, 1)
 		go func() {
 			errCh <- ripper.FindTitles(device, progressCh)
@@ -183,7 +183,7 @@ func (m Model) updateFetching(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, pollFetch(msg.progressCh, msg.errCh)
 
 	case fetchProgressMsg:
-		m.fetching.pct = len(msg.titles)
+		m.fetching.pct = msg.pct
 		m.fetching.lastTitles = msg.titles
 		return m, pollFetch(m.fetching.progressCh, m.fetching.errCh)
 

@@ -104,8 +104,8 @@ func FindTitles(device string, progressCh chan<- types.FetchingProgress) error {
 		return fmt.Errorf("makemkvcon failed to start: %w", err)
 	}
 
-	// MakeMKV outputs lines like: PRGV:current,total,max
 	scanner := bufio.NewScanner(stderr)
+	var maxTitleID int
 	for scanner.Scan() {
 		line := scanner.Text()
 
@@ -113,6 +113,9 @@ func FindTitles(device string, progressCh chan<- types.FetchingProgress) error {
 			entry, ok := parseTINFO(line)
 			if ok {
 				updateTitleStore(titleStore, entry)
+				if entry.TitleID > maxTitleID {
+					maxTitleID = entry.TitleID
+				}
 			}
 		}
 
@@ -136,6 +139,21 @@ func FindTitles(device string, progressCh chan<- types.FetchingProgress) error {
 				case progressCh <- tempProgress:
 				default:
 				}
+			}
+		}
+
+		if progressCh != nil && maxTitleID > 0 {
+			pct := int(float64(len(titleStore)) / float64(maxTitleID) * 100)
+			if pct > 100 {
+				pct = 99
+			}
+			tempProgress := types.FetchingProgress{
+				Pct:    pct,
+				Titles: titleStore,
+			}
+			select {
+			case progressCh <- tempProgress:
+			default:
 			}
 		}
 	}
@@ -171,12 +189,9 @@ func SliceTitleStore(titleStore map[int]types.TitleInfo) []types.TitleInfo {
 }
 
 func parseTINFO(line string) (types.TitleEntry, bool) {
-	// Example:
-	// TINFO:23,2,0,"Fantastic Beasts and Where to Find Them"
-
 	payload := strings.TrimPrefix(line, "TINFO:")
 	parts := strings.SplitN(payload, ",", 4)
-	if len(parts) != 4 {
+	if len(parts) < 4 {
 		return types.TitleEntry{}, false
 	}
 
@@ -192,9 +207,9 @@ func parseTINFO(line string) (types.TitleEntry, bool) {
 
 	trackDetail := types.TitleDetail(detailInt)
 
-	value, err := strconv.Unquote(parts[3])
-	if err != nil {
-		return types.TitleEntry{}, false
+	value := parts[3]
+	if unquoted, err := strconv.Unquote(value); err == nil {
+		value = unquoted
 	}
 
 	return types.TitleEntry{
