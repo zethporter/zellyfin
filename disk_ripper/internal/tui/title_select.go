@@ -27,23 +27,11 @@ func newTitleSelectModel(titles []types.TitleInfo, width, height int) (titleSele
 
 	items := make([]list.Item, len(titles))
 	for i, f := range titles {
-		lenMin, err := strconv.Atoi(f.Duration)
-		if err != nil {
-			seconds := lenMin % 60
-			minutes := (lenMin - seconds) / 60
-			items[i] = titleItem{
-				id:    f.ID,
-				title: f.Name,
-				desc:  f.SizeHuman + " | Duration: " + strconv.Itoa(minutes) + ":" + strconv.Itoa(seconds),
-			}
-		} else {
-			items[i] = titleItem{
-				id:    f.ID,
-				title: f.Name,
-				desc:  f.SizeHuman,
-			}
+		items[i] = titleItem{
+			id:    f.ID,
+			title: f.Name,
+			desc:  f.SizeHuman + " | Duration: " + f.Duration,
 		}
-
 	}
 
 	delegate := list.NewDefaultDelegate()
@@ -83,7 +71,7 @@ func (m Model) updateTitleSelect(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedTitle = selectedTitle
 				sm, cmd := newSearchModel(item.title)
 				m.search = sm
-				m.state = StateTMDBConfirm
+				m.state = StateTMDBSearch
 				return m, cmd
 			}
 		}
