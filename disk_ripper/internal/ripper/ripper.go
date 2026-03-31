@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	types "ripper/internal"
 )
@@ -81,10 +82,12 @@ func FindMKVFiles(dir string) ([]string, error) {
 }
 
 // FindTitles runs makemkvcon to list available titles on a disc.
-func FindTitles(device string, progressCh chan<- types.FetchingProgress) error {
-	titleStore := make(map[int]types.TitleInfo)
-
+func FindTitles(
+	device string,
+	progressCh chan<- types.FetchingProgress,
+) ([]types.TitleInfo, error) {
 	source := fmt.Sprintf("dev:%s", device)
+
 	cmd := exec.Command(
 		"makemkvcon",
 		"--robot",
@@ -94,32 +97,115 @@ func FindTitles(device string, progressCh chan<- types.FetchingProgress) error {
 		source,
 	)
 
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to pipe stdout: %w", err)
+	}
+
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return fmt.Errorf("failed to pipe stderr: %w", err)
+		return nil, fmt.Errorf("failed to pipe stderr: %w", err)
 	}
-	cmd.Stdout = io.Discard
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("makemkvcon failed to start: %w", err)
+		return nil, fmt.Errorf("makemkvcon failed to start: %w", err)
 	}
 
-	scanner := bufio.NewScanner(stderr)
-	var maxTitleID int
-	for scanner.Scan() {
-		line := scanner.Text()
+	type scanResult struct {
+		line string
+		err  error
+	}
 
-		if strings.HasPrefix(line, "TINFO:") {
-			entry, ok := parseTINFO(line)
-			if ok {
-				updateTitleStore(titleStore, entry)
-				if entry.TitleID > maxTitleID {
-					maxTitleID = entry.TitleID
-				}
-			}
+	lines := make(chan scanResult, 256)
+
+	var wg sync.WaitGroup
+	scanPipe := func(r io.Reader) {
+		defer wg.Done()
+
+		scanner := bufio.NewScanner(r)
+		scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			lines <- scanResult{line: line}
 		}
 
-		if strings.HasPrefix(line, "PRGV:") {
+		if err := scanner.Err(); err != nil {
+			lines <- scanResult{err: err}
+		}
+	}
+
+	wg.Add(2)
+	go scanPipe(stdout)
+	go scanPipe(stderr)
+
+	go func() {
+		wg.Wait()
+		close(lines)
+	}()
+
+	titleStore := make(map[int]types.TitleInfo)
+	titleCount := 0
+
+	cloneStore := func() map[int]types.TitleInfo {
+		cp := make(map[int]types.TitleInfo, len(titleStore))
+		for k, v := range titleStore {
+			cp[k] = v
+		}
+		return cp
+	}
+
+	emit := func(pct int) {
+		if progressCh == nil {
+			return
+		}
+		if pct < 0 {
+			pct = 0
+		}
+		if pct > 100 {
+			pct = 100
+		}
+
+		select {
+		case progressCh <- types.FetchingProgress{
+			Pct:    pct,
+			Titles: cloneStore(),
+		}:
+		default:
+		}
+	}
+
+	for item := range lines {
+		if item.err != nil {
+			return nil, fmt.Errorf("failed reading makemkvcon output: %w", item.err)
+		}
+
+		line := item.line
+
+		switch {
+		case strings.HasPrefix(line, "TCOUNT:"):
+			n, err := strconv.Atoi(strings.TrimPrefix(line, "TCOUNT:"))
+			if err == nil {
+				titleCount = n
+			}
+
+		case strings.HasPrefix(line, "TINFO:"):
+			entry, ok := parseTINFO(line)
+			if !ok {
+				continue
+			}
+
+			updateTitleStore(titleStore, entry)
+
+			if titleCount > 0 {
+				pct := len(titleStore) * 100 / titleCount
+				if pct > 99 {
+					pct = 99
+				}
+				emit(pct)
+			}
+
+		case strings.HasPrefix(line, "PRGV:"):
 			var current, total, max int
 			_, _ = fmt.Sscanf(
 				strings.TrimPrefix(line, "PRGV:"),
@@ -129,51 +215,18 @@ func FindTitles(device string, progressCh chan<- types.FetchingProgress) error {
 				&max,
 			)
 
-			if max > 0 && progressCh != nil {
-				pct := int(float64(current) / float64(max) * 100)
-				tempProgress := types.FetchingProgress{
-					Pct:    pct,
-					Titles: titleStore,
-				}
-				select {
-				case progressCh <- tempProgress:
-				default:
-				}
-			}
-		}
-
-		if progressCh != nil && maxTitleID > 0 {
-			pct := int(float64(len(titleStore)) / float64(maxTitleID) * 100)
-			if pct > 100 {
-				pct = 99
-			}
-			tempProgress := types.FetchingProgress{
-				Pct:    pct,
-				Titles: titleStore,
-			}
-			select {
-			case progressCh <- tempProgress:
-			default:
+			if max > 0 {
+				emit(current * 100 / max)
 			}
 		}
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("makemkvcon failed: %w", err)
+		return nil, fmt.Errorf("makemkvcon failed: %w", err)
 	}
 
-	if progressCh != nil {
-		tempProgress := types.FetchingProgress{
-			Pct:    100,
-			Titles: titleStore,
-		}
-		select {
-		case progressCh <- tempProgress:
-		default:
-		}
-	}
-
-	return nil
+	emit(100)
+	return SliceTitleStore(titleStore), nil
 }
 
 func SliceTitleStore(titleStore map[int]types.TitleInfo) []types.TitleInfo {
@@ -185,6 +238,7 @@ func SliceTitleStore(titleStore map[int]types.TitleInfo) []types.TitleInfo {
 	sort.Slice(titles, func(i, j int) bool {
 		return titles[i].ID < titles[j].ID
 	})
+
 	return titles
 }
 

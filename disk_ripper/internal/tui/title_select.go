@@ -74,11 +74,11 @@ func newTitleSelectModel(titles []types.TitleInfo, width, height int) (titleSele
 func (m Model) updateTitleSelect(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.fileSelect.list.SetSize(msg.Width-6, msg.Height-8)
+		m.titleSelect.list.SetSize(msg.Width-6, msg.Height-8)
 		return m, nil
 	case tea.KeyMsg:
 		if msg.String() == "enter" {
-			if item, ok := m.fileSelect.list.SelectedItem().(titleItem); ok {
+			if item, ok := m.titleSelect.list.SelectedItem().(titleItem); ok {
 				selectedTitle := strconv.Itoa(item.id)
 				m.selectedTitle = selectedTitle
 				sm, cmd := newSearchModel(item.title)
@@ -90,7 +90,7 @@ func (m Model) updateTitleSelect(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	m.fileSelect.list, cmd = m.fileSelect.list.Update(msg)
+	m.titleSelect.list, cmd = m.titleSelect.list.Update(msg)
 	return m, cmd
 }
 
@@ -98,7 +98,7 @@ func (m Model) viewTitleSelect() string {
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		"",
-		lipgloss.NewStyle().PaddingLeft(2).Render(m.fileSelect.list.View()),
+		lipgloss.NewStyle().PaddingLeft(2).Render(m.titleSelect.list.View()),
 		"",
 		helpStyle.Render("  ↑/↓  navigate   enter  select   /  filter"),
 	)

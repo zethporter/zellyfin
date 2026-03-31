@@ -104,6 +104,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateMenu(msg)
 	case StateConfigEditor:
 		return m.updateConfigEditor(msg)
+	case StateFetchTitles:
+		return m.updateFetching(msg)
+	case StateTitleSelect:
+		return m.updateTitleSelect(msg)
 	case StateTMDBSearch:
 		return m.updateSearch(msg)
 	case StateLocalOnlyConfirm:

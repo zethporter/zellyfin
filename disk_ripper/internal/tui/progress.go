@@ -125,7 +125,7 @@ func (m Model) viewRipping() string {
 
 type fetchStartedMsg struct {
 	progressCh <-chan types.FetchingProgress
-	errCh      <-chan error
+	doneCh     <-chan fetchDoneMsg
 }
 
 type fetchProgressMsg struct {
@@ -142,36 +142,58 @@ type fetchingModel struct {
 	pct        int
 	progressCh <-chan types.FetchingProgress
 	lastTitles map[int]types.TitleInfo
-	errCh      <-chan error
+	doneCh     <-chan fetchDoneMsg
 }
 
 func newTitleFetchModel(device string) (fetchingModel, tea.Cmd) {
-	rm := fetchingModel{
+	fm := fetchingModel{
 		bar: newProgressBar(),
 	}
 
 	cmd := func() tea.Msg {
 		progressCh := make(chan types.FetchingProgress, 100)
-		errCh := make(chan error, 1)
+		doneCh := make(chan fetchDoneMsg, 1)
+
 		go func() {
-			errCh <- ripper.FindTitles(device, progressCh)
+			titles, err := ripper.FindTitles(device, progressCh)
+			doneCh <- fetchDoneMsg{titles: titles, err: err}
 		}()
-		return fetchStartedMsg{progressCh: progressCh, errCh: errCh}
+
+		return fetchStartedMsg{
+			progressCh: progressCh,
+			doneCh:     doneCh,
+		}
 	}
-	return rm, cmd
+
+	return fm, cmd
 }
 
-func pollFetch(progressCh <-chan types.FetchingProgress, errCh <-chan error) tea.Cmd {
+func pollFetch(
+	progressCh <-chan types.FetchingProgress,
+	doneCh <-chan fetchDoneMsg,
+) tea.Cmd {
 	return func() tea.Msg {
-		select {
-		case pgsChan, ok := <-progressCh:
-			if !ok {
-				return nil
+		for progressCh != nil || doneCh != nil {
+			select {
+			case p, ok := <-progressCh:
+				if !ok {
+					progressCh = nil
+					continue
+				}
+				return fetchProgressMsg{
+					pct:    p.Pct,
+					titles: p.Titles,
+				}
+
+			case done, ok := <-doneCh:
+				if !ok {
+					doneCh = nil
+					continue
+				}
+				return done
 			}
-			return fetchProgressMsg{pct: pgsChan.Pct, titles: pgsChan.Titles}
-		case err := <-errCh:
-			return fetchDoneMsg{err: err}
 		}
+		return nil
 	}
 }
 
@@ -179,13 +201,13 @@ func (m Model) updateFetching(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case fetchStartedMsg:
 		m.fetching.progressCh = msg.progressCh
-		m.fetching.errCh = msg.errCh
-		return m, pollFetch(msg.progressCh, msg.errCh)
+		m.fetching.doneCh = msg.doneCh
+		return m, pollFetch(msg.progressCh, msg.doneCh)
 
 	case fetchProgressMsg:
 		m.fetching.pct = msg.pct
 		m.fetching.lastTitles = msg.titles
-		return m, pollFetch(m.fetching.progressCh, m.fetching.errCh)
+		return m, pollFetch(m.fetching.progressCh, m.fetching.doneCh)
 
 	case fetchDoneMsg:
 		if msg.err != nil {
@@ -195,12 +217,14 @@ func (m Model) updateFetching(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.done = dm
 			return m, cmd
 		}
-		m.diskTitles = ripper.SliceTitleStore(m.fetching.lastTitles)
+
+		m.diskTitles = msg.titles
 		ts, cmd := newTitleSelectModel(m.diskTitles, m.width, m.height)
 		m.titleSelect = ts
 		m.state = StateTitleSelect
 		return m, cmd
 	}
+
 	return m, nil
 }
 
