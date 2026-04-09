@@ -1,6 +1,7 @@
 output
 temp
 config.toml
+bin
 
 # Binaries
 *.exe

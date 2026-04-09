@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	cfgPath := "config.toml"
+	cfgPath := "/root/.config/zellyfin/config.toml"
 	if len(os.Args) > 1 {
 		cfgPath = os.Args[1]
 	}
